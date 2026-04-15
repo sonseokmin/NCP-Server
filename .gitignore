@@ -1,0 +1,13 @@
+# Python 캐시
+__pycache__/
+*.py[cod]
+
+# 가상 환경
+venv/
+.venv/
+env/
+
+# 환경 변수 및 설정
+.env
+.vscode/
+.idea/
