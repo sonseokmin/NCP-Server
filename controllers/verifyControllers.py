@@ -20,65 +20,67 @@ async def verifyLicense(payload: VerifyPayload, db: AsyncSession = Depends(getDb
     licenseKey = payload.licenseKey
     hwId = payload.hwId
 
+    # 1. 라이선스 키 미입력 (400)
     if not licenseKey:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
-            content={
-                "status": 400,
-                "detail": "Invalid Data"
-            }
+            content={"status": 400, "detail": "Invalid Data"}
         )
     
     try:
-        # 1. 라이선스 정보 조회
+        # DB에서 라이선스 정보 조회
         requests = await verifyModels.verifyLicense(db, licenseKey)
 
+        # 2. 존재하지 않는 키 (401)
         if not requests:
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED, 
                 content={"status": 401, "detail": "Unauthorized"}
             )
         
-        if requests["expireDate"] and requests["expireDate"] < datetime.now(timezone.utc):
+        # 공통으로 사용할 정보 미리 정리
+        expireDateRaw = requests["expireDate"]
+        displayDate = expireDateRaw.strftime("%Y-%m-%d") if expireDateRaw else "Ultimate"
+        maxDevices = requests["maxDevices"]
+        currentHwIds = list(requests["hwIds"])
+
+        # 3. 라이선스 기간 만료 (403)
+        if expireDateRaw and expireDateRaw < datetime.now(timezone.utc):
             return JSONResponse(
                 status_code=status.HTTP_403_FORBIDDEN,
-                content={"status": 403, "detail": "Expired License"}
+                content={
+                    "status": 403, 
+                    "detail": "Expired License",
+                    "expireDate": displayDate, # ◀ 추가
+                    "remainingDevices": 0      # ◀ 추가
+                }
             )
         
-        # 2. HWID 등록 및 검증 로직
-        currentHwIds = list(requests["hwIds"]) # JSONB 리스트 가져오기
-        isNewDevice = False # 🌟 새 기기 등록 여부를 추적하는 플래그
-
+        # 4. HWID 등록 및 검증
+        isNewDevice = False
         if hwId not in currentHwIds:
-            # 허용 대수 초과 여부 확인
-            if len(currentHwIds) >= requests["maxDevices"]:
+            # 허용 대수 초과 확인
+            if len(currentHwIds) >= maxDevices:
                 return JSONResponse(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    content={"status": 403, "detail": "Device Limit Exceeded"}
+                    content={
+                        "status": 403, 
+                        "detail": "Device Limit Exceeded",
+                        "expireDate": displayDate, # ◀ 추가: 대수 초과라도 만료일은 보여줌
+                        "remainingDevices": 0      # ◀ 추가
+                    }
                 )
             
-            # 새 HWID 추가 및 DB 업데이트
+            # 새 기기 등록
             currentHwIds.append(hwId)
             await verifyModels.updateHwIds(db, licenseKey, currentHwIds)
-            logger.info(f"New HWID registered: {hwId} for key: {licenseKey}")
-
             isNewDevice = True
 
-
-        expireDate = requests["expireDate"]
-
-        if expireDate is None:
-            displayDate = "Ultimate"
-        else:
-            displayDate = expireDate.strftime("%Y-%m-%d")
-            
-        remainingDevices = requests["maxDevices"] - len(currentHwIds)
-
-
+        # 5. 최종 성공 (200)
         return {
             "status": 200,
             "detail": "New HW Register" if isNewDevice else "Success",
-            "remainingDevices": remainingDevices,
+            "remainingDevices": maxDevices - len(currentHwIds),
             "expireDate" : displayDate
         }
 
