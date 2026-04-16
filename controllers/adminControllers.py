@@ -60,7 +60,7 @@ async def createNewLicense(payload: CreateLicensePayload, db: AsyncSession = Dep
             content={"status": 500, "message": "Internal Server Error"}
         )
     
-# 🌟 날짜 객체를 문자열로 안전하게 변환해주는 헬퍼 함수
+# 날짜 객체를 문자열로 안전하게 변환해주는 헬퍼 함수
 def format_datetime(data):
     if isinstance(data, dict):
         for key, value in data.items():
@@ -79,10 +79,21 @@ async def getLicense(licenseKey: str, db: AsyncSession = Depends(getDb)):
         if not row:
             return JSONResponse(status_code=404, content={"status": 404, "detail": "라이선스를 찾을 수 없습니다."})
 
-        # 1. RowMapping을 dict로 변환
         lic_dict = dict(row)
+        now = datetime.now(timezone.utc)
         
-        # 2. 모든 datetime 객체를 문자열로 변환 (createdAt, updatedAt 등 포함)
+        # 🌟 만료 여부 계산 로직 추가
+        isExpired = False
+        if lic_dict.get("expireDate"):
+            exp = lic_dict["expireDate"]
+            # DB 날짜에 시간대 정보가 없으면 UTC로 간주
+            if exp.tzinfo is None:
+                exp = exp.replace(tzinfo=timezone.utc)
+            isExpired = exp < now
+        
+        lic_dict["isExpired"] = isExpired
+        
+        # 날짜들 문자열로 변환
         safe_data = format_datetime(lic_dict)
 
         return JSONResponse(
@@ -100,8 +111,22 @@ async def getLicense(licenseKey: str, db: AsyncSession = Depends(getDb)):
 async def getAllLicenses(db: AsyncSession = Depends(getDb)):
     try:
         rows = await adminModels.getAllLicenses(db)
-        # 모든 행을 dict로 변환 후 날짜 포맷팅
-        data = [format_datetime(dict(r)) for r in rows]
+        now = datetime.now(timezone.utc)
+        
+        data = []
+        for row in rows:
+            lic_dict = dict(row)
+            
+            # 🌟 개별 항목마다 만료 여부 계산
+            isExpired = False
+            if lic_dict.get("expireDate"):
+                exp = lic_dict["expireDate"]
+                if exp.tzinfo is None:
+                    exp = exp.replace(tzinfo=timezone.utc)
+                isExpired = exp < now
+            
+            lic_dict["isExpired"] = isExpired
+            data.append(format_datetime(lic_dict))
 
         return JSONResponse(
             status_code=200,
