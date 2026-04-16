@@ -1,11 +1,10 @@
 from fastapi import FastAPI
+from routes import indexRoutes
+from starlette.middleware.base import BaseHTTPMiddleware
+from middlewares.logging import log
 
 app = FastAPI()
 
-@app.get("/")
-def read_root():
-    return {"message": "Hello NCP"}
+app.add_middleware(BaseHTTPMiddleware, dispatch=log)
 
-@app.get("/items/{item_id}")
-def read_item(item_id: int, q: str = None):
-    return {"item_id": item_id, "q": q}
+app.include_router(indexRoutes.router)
