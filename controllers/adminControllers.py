@@ -60,7 +60,8 @@ async def createNewLicense(payload: CreateLicensePayload, db: AsyncSession = Dep
             content={"status": 500, "message": "Internal Server Error"}
         )
     
-# 날짜 객체를 문자열로 안전하게 변환해주는 헬퍼 함수
+# ... (기존 임포트 동일)
+
 def format_datetime(data):
     if isinstance(data, dict):
         for key, value in data.items():
@@ -104,6 +105,40 @@ async def getLicense(licenseKey: str, db: AsyncSession = Depends(getDb)):
         )
     except Exception as e:
         logger.error(f"Get License Error: {e}")
+        return JSONResponse(status_code=500, content={"status": 500, "detail": "Internal Server Error"})
+
+# getAllLicenses 함수도 같은 원리로 작동함
+
+async def getAllLicenses(db: AsyncSession = Depends(getDb)):
+    try:
+        rows = await adminModels.getAllLicenses(db)
+        now = datetime.now(timezone.utc)
+        
+        data = []
+        for row in rows:
+            lic_dict = dict(row)
+            
+            # 🌟 개별 항목마다 만료 여부 계산
+            isExpired = False
+            if lic_dict.get("expireDate"):
+                exp = lic_dict["expireDate"]
+                if exp.tzinfo is None:
+                    exp = exp.replace(tzinfo=timezone.utc)
+                isExpired = exp < now
+            
+            lic_dict["isExpired"] = isExpired
+            data.append(format_datetime(lic_dict))
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": 200,
+                "detail": "전체 조회 성공",
+                "data": data
+            }
+        )
+    except Exception as e:
+        logger.error(f"Get All Licenses Error: {e}")
         return JSONResponse(status_code=500, content={"status": 500, "detail": "Internal Server Error"})
     
 async def deleteLicense(licenseKey: str, db: AsyncSession = Depends(getDb)):
