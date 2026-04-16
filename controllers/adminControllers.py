@@ -60,34 +60,18 @@ async def createNewLicense(payload: CreateLicensePayload, db: AsyncSession = Dep
             content={"status": 500, "message": "Internal Server Error"}
         )
     
-async def getAllLicenses(db: AsyncSession = Depends(getDb)):
-    try:
-        rows = await adminModels.getAllLicenses(db)
-        now = datetime.now(timezone.utc)
-        
-        data = []
-        for row in rows:
-            lic = dict(row)
-            # 만료 여부 판별 (만료일이 있고, 현재 시간보다 이전이면 True)
-            isExpired = False
-            if row["expireDate"]:
-                # DB 날짜에 시간대 정보가 없으면 utc로 맞춤
-                exp = row["expireDate"].replace(tzinfo=timezone.utc) if row["expireDate"].tzinfo is None else row["expireDate"]
-                isExpired = exp < now
-
-            lic["isExpired"] = isExpired
-            lic["expireDate"] = row["expireDate"].strftime("%Y-%m-%d %H:%M:%S") if row["expireDate"] else "Ultimate"
-            lic["createdAt"] = row["createdAt"].strftime("%Y-%m-%d %H:%M:%S") if row["createdAt"] else None
-            lic["updatedAt"] = row["updatedAt"].strftime("%Y-%m-%d %H:%M:%S") if row["updatedAt"] else None
-            data.append(lic)
-
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content=jsonable_encoder({"status": 200, "detail": "전체 라이선스 조회 성공", "data": data})
-        )
-    except Exception as e:
-        logger.error(f"Get All Licenses Error: {e}")
-        return JSONResponse(status_code=500, content={"status": 500, "detail": "Internal Server Error"})
+# 🌟 날짜 객체를 문자열로 안전하게 변환해주는 헬퍼 함수
+def format_datetime(data):
+    if isinstance(data, dict):
+        for key, value in data.items():
+            if isinstance(value, datetime):
+                data[key] = value.strftime("%Y-%m-%d %H:%M:%S")
+            elif isinstance(value, dict) or isinstance(value, list):
+                format_datetime(value)
+    elif isinstance(data, list):
+        for item in data:
+            format_datetime(item)
+    return data
 
 async def getLicense(licenseKey: str, db: AsyncSession = Depends(getDb)):
     try:
@@ -95,26 +79,42 @@ async def getLicense(licenseKey: str, db: AsyncSession = Depends(getDb)):
         if not row:
             return JSONResponse(status_code=404, content={"status": 404, "detail": "라이선스를 찾을 수 없습니다."})
 
-        now = datetime.now(timezone.utc)
-        lic = dict(row)
+        # 1. RowMapping을 dict로 변환
+        lic_dict = dict(row)
         
-        isExpired = False
-        if row["expireDate"]:
-            exp = row["expireDate"].replace(tzinfo=timezone.utc) if row["expireDate"].tzinfo is None else row["expireDate"]
-            isExpired = exp < now
+        # 2. 모든 datetime 객체를 문자열로 변환 (createdAt, updatedAt 등 포함)
+        safe_data = format_datetime(lic_dict)
 
-        lic["isExpired"] = isExpired
-        lic["expireDate"] = row["expireDate"].strftime("%Y-%m-%d %H:%M:%S") if row["expireDate"] else "Ultimate"
-        lic["createdAt"] = row["createdAt"].strftime("%Y-%m-%d %H:%M:%S") if row["createdAt"] else None
-        
         return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={"status": 200, "detail": "조회 성공", "data": lic}
+            status_code=200,
+            content={
+                "status": 200,
+                "detail": "조회 성공",
+                "data": safe_data
+            }
         )
     except Exception as e:
         logger.error(f"Get License Error: {e}")
-        return JSONResponse(status_code=500, content=jsonable_encoder({"status": 500, "detail": "Internal Server Error"}))
+        return JSONResponse(status_code=500, content={"status": 500, "detail": "Internal Server Error"})
 
+async def getAllLicenses(db: AsyncSession = Depends(getDb)):
+    try:
+        rows = await adminModels.getAllLicenses(db)
+        # 모든 행을 dict로 변환 후 날짜 포맷팅
+        data = [format_datetime(dict(r)) for r in rows]
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": 200,
+                "detail": "전체 조회 성공",
+                "data": data
+            }
+        )
+    except Exception as e:
+        logger.error(f"Get All Licenses Error: {e}")
+        return JSONResponse(status_code=500, content={"status": 500, "detail": "Internal Server Error"})
+    
 async def deleteLicense(licenseKey: str, db: AsyncSession = Depends(getDb)):
     try:
         rowCount = await adminModels.deleteLicense(db, licenseKey)
