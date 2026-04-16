@@ -66,6 +66,9 @@ def format_datetime(data):
         for key, value in data.items():
             if isinstance(value, datetime):
                 data[key] = value.strftime("%Y-%m-%d %H:%M:%S")
+            # 🌟 만료일이 None(NULL)이면 "Ultimate"로 표시
+            elif key == "expireDate" and value is None:
+                data[key] = "Ultimate"
             elif isinstance(value, dict) or isinstance(value, list):
                 format_datetime(value)
     elif isinstance(data, list):
@@ -82,62 +85,25 @@ async def getLicense(licenseKey: str, db: AsyncSession = Depends(getDb)):
         lic_dict = dict(row)
         now = datetime.now(timezone.utc)
         
-        # 🌟 만료 여부 계산 로직 추가
+        # 만료 여부 계산
         isExpired = False
         if lic_dict.get("expireDate"):
             exp = lic_dict["expireDate"]
-            # DB 날짜에 시간대 정보가 없으면 UTC로 간주
             if exp.tzinfo is None:
                 exp = exp.replace(tzinfo=timezone.utc)
             isExpired = exp < now
         
         lic_dict["isExpired"] = isExpired
         
-        # 날짜들 문자열로 변환
+        # 🌟 여기서 format_datetime을 거치면서 None이 "Ultimate"로 바뀜
         safe_data = format_datetime(lic_dict)
 
         return JSONResponse(
             status_code=200,
-            content={
-                "status": 200,
-                "detail": "조회 성공",
-                "data": safe_data
-            }
+            content={"status": 200, "detail": "조회 성공", "data": safe_data}
         )
     except Exception as e:
         logger.error(f"Get License Error: {e}")
-        return JSONResponse(status_code=500, content={"status": 500, "detail": "Internal Server Error"})
-
-async def getAllLicenses(db: AsyncSession = Depends(getDb)):
-    try:
-        rows = await adminModels.getAllLicenses(db)
-        now = datetime.now(timezone.utc)
-        
-        data = []
-        for row in rows:
-            lic_dict = dict(row)
-            
-            # 🌟 개별 항목마다 만료 여부 계산
-            isExpired = False
-            if lic_dict.get("expireDate"):
-                exp = lic_dict["expireDate"]
-                if exp.tzinfo is None:
-                    exp = exp.replace(tzinfo=timezone.utc)
-                isExpired = exp < now
-            
-            lic_dict["isExpired"] = isExpired
-            data.append(format_datetime(lic_dict))
-
-        return JSONResponse(
-            status_code=200,
-            content={
-                "status": 200,
-                "detail": "전체 조회 성공",
-                "data": data
-            }
-        )
-    except Exception as e:
-        logger.error(f"Get All Licenses Error: {e}")
         return JSONResponse(status_code=500, content={"status": 500, "detail": "Internal Server Error"})
     
 async def deleteLicense(licenseKey: str, db: AsyncSession = Depends(getDb)):
