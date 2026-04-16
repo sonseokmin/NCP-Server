@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from loguru import logger
 from pydantic import BaseModel
 from typing import Optional
+from fastapi.encoders import jsonable_encoder # 추가
 
 from db.database import getDb
 from models import adminModels
@@ -82,7 +83,7 @@ async def getAllLicenses(db: AsyncSession = Depends(getDb)):
 
         return JSONResponse(
             status_code=status.HTTP_200_OK,
-            content={"status": 200, "detail": "전체 라이선스 조회 성공", "data": data}
+            content=jsonable_encoder({"status": 200, "detail": "전체 라이선스 조회 성공", "data": data})
         )
     except Exception as e:
         logger.error(f"Get All Licenses Error: {e}")
@@ -112,7 +113,7 @@ async def getLicense(licenseKey: str, db: AsyncSession = Depends(getDb)):
         )
     except Exception as e:
         logger.error(f"Get License Error: {e}")
-        return JSONResponse(status_code=500, content={"status": 500, "detail": "Internal Server Error"})
+        return JSONResponse(status_code=500, content=jsonable_encoder({"status": 500, "detail": "Internal Server Error"}))
 
 async def deleteLicense(licenseKey: str, db: AsyncSession = Depends(getDb)):
     try:
