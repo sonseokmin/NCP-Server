@@ -75,9 +75,9 @@ async def createNewLicense(
                 "data": {
                     "licenseKey": newLicenseKey,
                     "maxDevices": payload.maxDevices,
-                    "expireDate": (
-                        expireDate.strftime("%Y-%m-%d") if expireDate else "Ultimate"
-                    ),
+                    "expireDate": expireDate.strftime("%Y-%m-%d")
+                    if expireDate
+                    else "Ultimate",
                 },
             },
         )

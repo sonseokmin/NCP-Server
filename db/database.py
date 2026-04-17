@@ -20,14 +20,14 @@ engine = create_async_engine(dbUrl, echo=False)
 
 # 세션 생성기
 sessionLocal = async_sessionmaker(
-    bind=engine,
-    class_=AsyncSession,
-    expire_on_commit=False
+    bind=engine, class_=AsyncSession, expire_on_commit=False
 )
+
 
 # 모델용 베이스 클래스
 class Base(DeclarativeBase):
     pass
+
 
 # 의존성 주입을 위한 DB 세션 함수
 async def getDb():
