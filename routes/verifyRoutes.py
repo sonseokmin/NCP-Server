@@ -6,8 +6,4 @@ from controllers import verifyControllers
 verifyRouter = APIRouter()
 
 # POST /verify
-verifyRouter.add_api_route(
-    "/verify", 
-    verifyControllers.verifyLicense, 
-    methods=["POST"]
-)
+verifyRouter.add_api_route("/verify", verifyControllers.verifyLicense, methods=["POST"])

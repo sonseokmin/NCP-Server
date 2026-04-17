@@ -3,6 +3,7 @@ import json
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+
 async def verifyLicense(db: AsyncSession, licenseKey: str):
 
     sql = text(
@@ -17,6 +18,7 @@ async def verifyLicense(db: AsyncSession, licenseKey: str):
     # 딕셔너리 형태로 반환받기 위해 mappings() 사용
     return result.mappings().first()
 
+
 async def updateHwIds(db: AsyncSession, licenseKey: str, newHwIds: list):
     query = text(
         """
@@ -26,9 +28,8 @@ async def updateHwIds(db: AsyncSession, licenseKey: str, newHwIds: list):
         """
     )
 
-    await db.execute(query, {
-        "licenseKey": licenseKey,
-        "newHwIds": json.dumps(newHwIds)
-    })
+    await db.execute(
+        query, {"licenseKey": licenseKey, "newHwIds": json.dumps(newHwIds)}
+    )
 
     await db.commit()

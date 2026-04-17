@@ -7,20 +7,21 @@ from loguru import logger
 # 로그 포맷 설정
 logger.remove()
 logger.add(
-    sys.stderr, 
+    sys.stderr,
     format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> <white>|</white> {message}",
-    colorize=True
+    colorize=True,
 )
+
 
 async def log(request: Request, call_next):
     startTime = time.time()
-    
+
     # 1. 요청 Body 읽기 (무한 로딩 방지를 위한 복구 작업 포함)
     bodyBytes = await request.body()
-    
+
     async def customReceive():
         return {"type": "http.request", "body": bodyBytes}
-    
+
     request._receive = customReceive  # 읽은 Body를 다시 Request 객체에 채워 넣음
 
     # 2. Body를 JSON으로 파싱 (실패 시 일반 텍스트로 처리)
@@ -30,12 +31,12 @@ async def log(request: Request, call_next):
             payload = json.loads(bodyBytes)
         except json.JSONDecodeError:
             payload = bodyBytes.decode("utf-8")
-            
+
     # 3. 다음 라우터로 넘기기
     response = await call_next(request)
-    
+
     processTime = (time.time() - startTime) * 1000
-    
+
     method = request.method
     path = request.url.path
     statusCode = response.status_code
@@ -51,5 +52,5 @@ async def log(request: Request, call_next):
         f"<yellow>{processTime:.2f}ms</yellow> <white>|</white> "
         f"<magenta>{requestData}</magenta>"
     )
-    
+
     return response
