@@ -1,7 +1,9 @@
 # 실제 기능 프로세스를 담당하는 파일
 
 from datetime import datetime, timezone
+import os
 
+from dotenv import load_dotenv
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
@@ -11,6 +13,8 @@ from typing import Optional
 
 from db.database import getDb
 from models import verifyModels
+
+load_dotenv()
 
 
 class VerifyPayload(BaseModel):
@@ -55,8 +59,8 @@ async def verifyLicense(payload: VerifyPayload, db: AsyncSession = Depends(getDb
                 content={
                     "status": 403,
                     "detail": "Expired License",
-                    "expireDate": displayDate,  
-                    "remainingDevices": 0,  
+                    "expireDate": displayDate,
+                    "remainingDevices": 0,
                 },
             )
 
@@ -70,8 +74,8 @@ async def verifyLicense(payload: VerifyPayload, db: AsyncSession = Depends(getDb
                     content={
                         "status": 403,
                         "detail": "Device Limit Exceeded",
-                        "expireDate": displayDate,  
-                        "remainingDevices": 0,  
+                        "expireDate": displayDate,
+                        "remainingDevices": 0,
                     },
                 )
 
@@ -86,6 +90,7 @@ async def verifyLicense(payload: VerifyPayload, db: AsyncSession = Depends(getDb
             "detail": "New HW Register" if isNewDevice else "Success",
             "remainingDevices": maxDevices - len(currentHwIds),
             "expireDate": displayDate,
+            "apiKey": os.getenv("OPENAI_API_KEY"),
         }
 
     except Exception as e:
