@@ -49,7 +49,7 @@ adminRouter = APIRouter(
 
 # POST /admin/licenses
 adminRouter.add_api_route(
-    "/licenses", adminControllers.creaFteNewLicense, methods=["POST"]
+    "/licenses", adminControllers.createNewLicense, methods=["POST"]
 )
 
 adminRouter.add_api_route("/licenses", adminControllers.getAllLicenses, methods=["GET"])
